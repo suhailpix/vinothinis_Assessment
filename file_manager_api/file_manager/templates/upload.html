@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Transfer</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color:azure;
+        }        
+        section {
+            padding: 10px;
+        }
+        .tab {
+        overflow: hidden;
+        border: 1px solid #ccc;
+        background-color: #f1f1f1;
+        }
+
+        .tab button {
+        background-color: inherit;
+        float: left;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 14px 16px;
+        transition: 0.3s;
+        font-size: 17px;
+        }
+
+        .tab button:hover {
+        background-color: #ddd;
+        }
+
+        .tab button.active {
+        background-color: #ccc;
+        }
+
+        .tabcontent {
+        display: none;
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        border-top: none;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <section class = "content-header">
+        <h1>File Upload and Storage service</h1>
+    </section>
+
+    {% if message %}
+            <script>
+                alert("{{ message }}");
+            </script>
+    {% endif %}
+
+    <div class="tab">
+        <button class="tablinks active" onclick="openAction(event, 'Upload')">Upload</button>
+        <button class="tablinks" onclick="openAction(event, 'listfiles')">List of Files</button>
+        <button id= "Delete-tab" class="tablinks" onclick="openAction(event, 'Delete')">Delete</button>
+        <button class="tablinks" onclick="openAction(event, 'Retrieve')">Retrieve</button>
+    </div>
+    
+    <div id="Upload" class="tabcontent">
+        <form action="{% url 'upload_file' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="file" name="file" required>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+    
+    <div id="listfiles" class="tabcontent">
+        <button class="btn btn-primary" onclick="fetchFiles()">View Files</button>
+        <table id="fileTable" class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Filename</th>
+                    <th>Size (bytes)</th>
+                    <th>MIME Type</th>
+                </tr>
+            </thead>
+            <tbody id="fileTableBody">
+            </tbody>
+        </table>
+    </div>
+    
+    <div id="Delete" class="tabcontent">
+        <button class="btn btn-primary" onclick="fetchFiles_del()">View Files</button>
+        <table id="fileTable" class="table table-striped">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Filename</th>
+                    <th>Size (bytes)</th>
+                    <th>Select</th>
+                </tr>
+            </thead>
+            <tbody id="fileTableBody_del">
+            </tbody>
+        </table>
+        <form id="deleteForm" method="post" action="{% url 'delete_files' %}">
+            {% csrf_token %}
+            <input type="hidden" id="selectedFilesInput" name="selected_files[]" value="">
+            <button type="button" onclick="deleteSelectedFiles()">Delete Selected</button>
+        </form>
+    </div>
+    
+    <div id="Retrieve" class="tabcontent">
+        <button onclick="fetchFiles_trash()">View Trash</button>
+        <table id="trashTable">
+            <thead>
+                <tr>
+                    <th>Filename</th>
+                    <th>Size (bytes)</th>
+                    <th>Select</th>
+                </tr>
+            </thead>
+            <tbody id="trashTableBody">
+            </tbody>
+        </table>
+        <form id="restoreForm" method="post" action="{% url 'restore_files' %}">
+            {% csrf_token %}
+            <input type="hidden" id="selectedFilesInput" name="selected_files[]" value="">
+            <button type="button" onclick="restoreSelectedFiles()">Restore Selected</button>
+        </form>
+    </div>
+    
+
+    <script>
+        function openAction(evt, cityName) {
+          var i, tabcontent, tablinks;
+          tabcontent = document.getElementsByClassName("tabcontent");
+          for (i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+          }
+          tablinks = document.getElementsByClassName("tablinks");
+          for (i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+          }
+          document.getElementById(cityName).style.display = "block";
+          evt.currentTarget.className += " active";
+        }
+
+        function fetchFiles() {
+            fetch("{% url 'list_files' %}")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                updateFileTable(data.files);
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function updateFileTable(files) {
+            var tableBody = document.getElementById("fileTableBody");
+            tableBody.innerHTML = ""; 
+            files.forEach(file => {
+                var row = document.createElement("tr");
+                var nameCell = document.createElement("td");
+                var sizeCell = document.createElement("td");
+                var mimeCell = document.createElement("td");
+                nameCell.textContent = file.name;
+                sizeCell.textContent = file.size;
+                mimeCell.textContent = file.mime_type;
+                row.appendChild(nameCell);
+                row.appendChild(sizeCell);
+                row.appendChild(mimeCell);
+                tableBody.appendChild(row);
+            });
+        }
+
+        function fetchFiles_del() {
+            fetch("{% url 'list_files' %}")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                updateFileTable_del(data.files);
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function updateFileTable_del(files) {
+            var tableBody = document.getElementById("fileTableBody_del");
+            tableBody.innerHTML = ""; 
+
+            files.forEach(file => {
+                var row = document.createElement("tr");
+                var nameCell = document.createElement("td");
+                var sizeCell = document.createElement("td");
+                var deleteCell = document.createElement("td");
+
+                nameCell.textContent = file.name;
+                sizeCell.textContent = file.size;
+                deleteCell.innerHTML = `<input type="checkbox" name="selected_files[]" value="${file.name}">`;
+
+                row.appendChild(nameCell);
+                row.appendChild(sizeCell);
+                row.appendChild(deleteCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        function deleteSelectedFiles() {
+            var selectedFiles = [];
+            document.querySelectorAll('input[name="selected_files[]"]:checked').forEach(file => {
+                selectedFiles.push(file.value);
+            });
+            document.getElementById("selectedFilesInput").value = selectedFiles.join(",");
+            document.getElementById("deleteForm").submit();
+        }
+
+        document.getElementById("deleteForm").addEventListener("submit", function(event) {
+            event.preventDefault(); 
+            fetch(event.target.action, {
+                method: event.target.method,
+                body: new FormData(event.target)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.message) {
+                    alert(data.message);
+                } else {
+                    alert('An error occurred while deleting files.'); 
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting files.');
+            });
+        });
+        
+        function fetchFiles_trash() {
+            fetch("{% url 'retrieve_files' %}")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Network response was not ok");
+                }
+                return response.json();
+            })
+            .then(data => {
+                updateFileTable_trash(data.files);
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        function updateFileTable_trash(files) {
+            var tableBody = document.getElementById("trashTableBody");
+            tableBody.innerHTML = ""; 
+
+            files.forEach(file => {
+                var row = document.createElement("tr");
+                var nameCell = document.createElement("td");
+                var sizeCell = document.createElement("td");
+                var restoreCell = document.createElement("td");
+
+                nameCell.textContent = file.name;
+                sizeCell.textContent = file.size;
+                restoreCell.innerHTML = `<input type="checkbox" name="selected_files[]" value="${file.name}">`;
+
+                row.appendChild(nameCell);
+                row.appendChild(sizeCell);
+                row.appendChild(restoreCell);
+
+                tableBody.appendChild(row);
+            });
+        }
+
+        function restoreSelectedFiles() {
+            var selectedFiles = [];
+            document.querySelectorAll('input[name="selected_files[]"]:checked').forEach(file => {
+                selectedFiles.push(file.value);
+            });
+            document.getElementById("selectedFilesInput").value = selectedFiles.join(",");
+            document.getElementById("restoreForm").submit();
+        }
+
+        document.getElementById("restoreForm").addEventListener("submit", function(event) {
+            event.preventDefault(); 
+            fetch(event.target.action, {
+                method: event.target.method,
+                body: new FormData(event.target)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.message) {
+                    alert(data.message);
+                } else {
+                    alert('An error occurred while restoring files.'); 
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while restoring files.');
+            });
+        });
+
+
+        </script>
+    
+</body>
+</html>

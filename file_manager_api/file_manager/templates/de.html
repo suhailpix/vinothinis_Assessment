@@ -1,0 +1,15 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>List Files</title>
+</head>
+<body>
+    <h2>Available Files</h2>
+    <ul>
+        {% for file in files %}
+            <li>{{ file }} - <a href="{% url 'delete_file' %}?file_to_delete={{ file }}">Delete</a></li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
